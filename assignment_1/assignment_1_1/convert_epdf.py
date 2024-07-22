@@ -7,7 +7,7 @@ import pydash
 from fitz import fitz
 from typing import List
 from assignment_1.assignment_1_1.helper_convert import normalize, extract_page_blocks
-
+import hashlib
 
 def dump_paragraphs(page_blocks: List[dict]):
     words = blocks_to_words(page_blocks)
@@ -76,6 +76,7 @@ def dump_paragraphs(page_blocks: List[dict]):
             "chars": {"text": chars, "x0_list": x0_list}
         }
 
+        print(''.join(chars))
         return ret
 
     def buf_to_para(lines):
@@ -162,17 +163,39 @@ def remove_dir_outliner(words, threshold=3):
     dir_x = [x[8] for x in words]
     dir_y = [x[9] for x in words]
     # todo:  Question 1
+    # text = [x for x in words if x[4] == 'See']
     return words
 
 
 def filter_top_half(words):
     # todo: Question 2
+    y0 = [w[1] for w in words]
+    mid = min(y0) + (max(y0) - min(y0)) / 2
+    words = [w for w in words if w[1] <= mid]
+    return words
+
     return words
 
 
 def remove_large_bbox(words):
+    """ from hints
+    np_bboxes = np.array([it[:4] for it in words])
+    np_bboxes_height = np_bboxes[:,3] - np_bboxes[:,1]
+    sz_threshold = max(np_bboxes_height) * 0.8
+    words = [it for i, it in enumerate(words) if np_bboxes_height[i] <= sz_threshold]
+    return words """ 
+
     # todo: Question 3
-    return words
+    # Here I use standard deviation to catch outlier large texts instead of using max*0.8
+    np_bboxes = np.array([it[:4] for it in words])
+    np_bboxes_height = np_bboxes[:,3] - np_bboxes[:,1]
+    np_bboxes_height_mean = np.mean(np_bboxes_height)
+    np_bboxes_height_std_dev = np.std(np_bboxes_height)
+    z_scores = np.abs((np_bboxes_height - np_bboxes_height_mean) / np_bboxes_height_std_dev)
+    keep_idx = np.where(z_scores <= 3)[0]
+    keep_words = [words[x] for x in keep_idx]
+
+    return keep_words
 
 
 def pymupdf_transform_to_idp_format(pdf_bin):
@@ -207,15 +230,38 @@ def convert_e_pdf(pdf_bin):
     return text_result
 
 def extract_images(pdf_bin, save_path):
+    save_path = pathlib.Path(save_path)
     # todo: Question 4
-    pass
+    buf = io.BytesIO(pdf_bin)
 
+    doc = fitz.Document(stream=buf, filetype='pdf')
+    image_dicts = []
+    for page_id, page in enumerate(doc):
+        page_blocks = extract_page_blocks(doc.load_page(page_id))
+        image_blocks = [blk for blk in page_blocks if blk['type'] == 1] # image is mapped to type 1
+        image_dicts.extend(image_blocks)
+        
+    if len(image_dicts) > 0:
+        save_path.mkdir(parents=True, exist_ok=True)
+        for image_dict in image_dicts:
+            display_image(image_dict['image'])
+            save_stem = hashlib.sha256(image_dict['image']).hexdigest()
+            path = save_path / f'{save_stem}.{image_dict["ext"]}'
+            print(path)
+            with open(path, 'wb') as f:
+                f.write(image_dict['image'])
+
+from PIL import Image
+
+def display_image(image_bytes):
+    img = Image.open(io.BytesIO(image_bytes))
+    img.show()
 
 if __name__ == "__main__":
     dataset_dir = pathlib.Path(__file__).parents[1]
-    input_path = 'assignment_1_1/data/epdf_sample.pdf'
+    input_path = 'assignment_1_1/data/peak_2022.pdf'
     pdf_path = dataset_dir / input_path
-    save_path = 'assignment_1_1/data/epdf_sample'
+    save_path = 'assignment_1_1/data/peak_2022'
     test_file = dataset_dir / f'{save_path}.json'
 
     pdf_bin = pdf_path.read_bytes()
@@ -223,7 +269,8 @@ if __name__ == "__main__":
     with open(test_file, 'w') as f:
         json.dump(result, f, indent=2)
 
-    # extract_images(pdf_bin, save_path)
+    image_save_path = dataset_dir / f'{save_path}'
+    extract_images(pdf_bin, image_save_path)
 
 
 
