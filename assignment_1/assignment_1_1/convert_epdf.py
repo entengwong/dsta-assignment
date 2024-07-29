@@ -162,9 +162,16 @@ def remove_zero_bboxes(words):
 def remove_dir_outliner(words, threshold=3):
     dir_x = [x[8] for x in words]
     dir_y = [x[9] for x in words]
-    # todo:  Question 1
-    # text = [x for x in words if x[4] == 'See']
-    return words
+    angle = np.arctan2(dir_y, dir_x) # to find the angle between the positive x-axis and (dir_x, dir_y)
+    angle_mean = np.mean(angle) 
+    angle_std = np.std(angle) 
+    if angle_std > 0: 
+        z_score = (angle - angle_mean) / angle_std 
+        z_score_abs = np.abs(z_score)
+        filtered = [x for xi, x in enumerate(words) if z_score_abs[xi] < threshold]
+        return filtered
+    else:
+        return words
 
 
 def filter_top_half(words):
@@ -172,8 +179,6 @@ def filter_top_half(words):
     y0 = [w[1] for w in words]
     mid = min(y0) + (max(y0) - min(y0)) / 2
     words = [w for w in words if w[1] <= mid]
-    return words
-
     return words
 
 

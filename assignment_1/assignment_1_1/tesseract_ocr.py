@@ -156,13 +156,26 @@ class TesseractResultTransformer:
     def get_one_line(cls, bbox_list, word_list, line_idx):
         bbox = cls.stack_bbox(bbox_list)
         text = ' '.join(word_list)
-        # todo: Question 8
+        char_height = round(sum([bb[3]-bb[1] for bb in bbox_list])/ len(bbox_list), 2)
+        char_width_list = []
+        char_list = []
+        char_x0_list = []
+        for word_idx, one_word in enumerate(word_list):
+            char_ave_width = round((bbox_list[word_idx][2]-bbox_list[word_idx][0])/len(one_word), 2)
+            char_width_list.append(char_ave_width)
+            if word_idx != 0:
+                char_x0_list.append(bbox_list[word_idx-1][2])
+                char_list.append(' ')
+            char_list.extend([char for char in one_word])
+            for i in range(len(one_word)):
+                char_x0_list.append(bbox_list[word_idx][0]+i*char_ave_width)
+        char_width = round(sum(char_width_list)/len(word_list), 2)
 
         line = {'bbox': bbox,
-                # 'char_height': char_height,
-                # 'char_width': char_width,
-                # 'chars': {'text': char_list,
-                #           'x0_list': char_x0_list},
+                'char_height': char_height,
+                'char_width': char_width,
+                'chars': {'text': char_list,
+                        'x0_list': char_x0_list},
                 'line_id': line_idx,
                 'text': text
                 }

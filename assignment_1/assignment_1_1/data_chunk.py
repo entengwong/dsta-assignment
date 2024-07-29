@@ -1,7 +1,7 @@
 import pydash
 import numpy as np
 import copy
-
+import re
 
 def arrange_rows(paragraphs, connector='\t'):
     # flatten line obj from paragraph
@@ -99,7 +99,7 @@ def arrange_rows(paragraphs, connector='\t'):
     return row_data, row_lines_matrix, all_space_width_list
 
 
-def create_document_string(page, prefix='### Input:\n\n', connector='\t', simple_join=False):
+def create_document_string(page, prefix='### Input:\n\n', connector='\t', simple_join=True):
     """
     Takes in a page from idp-doc.
     chunk the document in two ways:
@@ -124,8 +124,9 @@ def create_document_string(page, prefix='### Input:\n\n', connector='\t', simple
             document += text + '\n'
         document += '\n'
     else:
-        # todo: Question 1
-        pass
+        sorted_paragraphs = sorted(page['paragraphs'], key=lambda x: (x['bbox'][1], x['bbox'][0]))
+        document = ' '.join([paragraph['text'] for paragraph in sorted_paragraphs])
+        document = re.sub(r'\n', ' ', document)
     return document
 
 
